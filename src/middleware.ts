@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isProtectedPage } from "./utils";
+import { checkBanAPI } from "./libs/api/checkBan";
 
 export default function middleware(req: NextRequest) {
   if (isProtectedPage(req.nextUrl.pathname)) {
@@ -9,10 +10,19 @@ export default function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-const authMiddleware = auth((req) => {
-  const isLoggedIn = !!req.auth;
-  if (!isLoggedIn) {
+const authMiddleware = auth(async (req) => {
+  if (!req.auth) {
     return NextResponse.redirect(new URL(`/login?callbackUrl=${req.nextUrl.href}`, req.nextUrl));
+  }
+  if (!req.nextUrl.pathname.startsWith("/banIssue")) {
+    const response = (await fetch(`${req.nextUrl.origin}/api/checkBan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", cookie: req.headers.get("Cookie") || "" },
+      body: JSON.stringify({ id: req.auth.user.id }),
+    }).then((e) => e.json())) as Awaited<ReturnType<typeof checkBanAPI>>;
+    if (response.isBanned) {
+      return NextResponse.redirect(new URL(`/banIssue?time=current&resolve=no`, req.nextUrl));
+    }
   }
   return NextResponse.next();
 });
