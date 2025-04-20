@@ -7,12 +7,14 @@ import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import { deleteReservation, editReservation } from "@/libs/reservations";
 import { Reservation } from "@/libs/db/models/Reservation";
 import { Session } from "next-auth";
+import { UserType } from "@/libs/db/models/User";
+import { CWS } from "@/libs/db/models/CoworkingSpace";
 
 export default function OptionButton({
   reservation,
   session,
 }: {
-  reservation: Reservation;
+  reservation: Omit<Omit<Reservation, "coworkingSpace">, "user"> & { user: UserType; coworkingSpace: CWS };
   session: Session;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -56,7 +58,7 @@ export default function OptionButton({
           // * Refactor if possible
           && [
             ...(session.user.id == reservation.user._id ? [{ status: "canceled", text: "Cancel" }] : []),
-            ...(session.user.role == "admin" ?
+            ...(session.user.role == "admin" || session.user.id == reservation.coworkingSpace._id ?
               [
                 { status: "approved", text: "Approve" },
                 { status: "rejected", text: "Reject" },
