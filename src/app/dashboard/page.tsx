@@ -8,7 +8,7 @@ export default async function Dashboard({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const session = await auth();
-  if (session && session.user.role != "admin") return <main>You don&lsquo;t have access to this page</main>;
+  if (!session) return <main>You are not logged in</main>;
 
   const params = await searchParams;
   const { page, limit = 15 } = readPaginationSearchParams(params);
@@ -16,7 +16,7 @@ export default async function Dashboard({
   return (
     <main className="p-4">
       <h1>Coworking-Spaces</h1>
-      <CWSTable page={page} limit={limit} search={search} />
+      <CWSTable page={page} limit={limit} search={search} session={session} />
     </main>
   );
 }
