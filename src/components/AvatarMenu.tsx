@@ -11,6 +11,8 @@ import {
   ArrowRightStartOnRectangleIcon,
   UserCircleIcon,
   ComputerDesktopIcon,
+  NoSymbolIcon,
+  ScaleIcon,
 } from "@heroicons/react/24/outline";
 import AvatarIcon from "./AvatarIcon";
 import { userLogout } from "@/libs/auth";
@@ -77,12 +79,20 @@ export default function AvatarMenu({ session }: { session: Session | null }) {
               <UserCircleIcon width={16} height={16} />
               Profile
             </LinkItem>,
+            <LinkItem href="/banIssue" handleClose={handleClose} key="banIssue">
+              <NoSymbolIcon width={16} height={16} />
+              Ban Issues
+            </LinkItem>,
             session.user.role == "admin" && (
-              <LinkItem href="/dashboard" handleClose={handleClose} key="dashboard">
-                <ComputerDesktopIcon width={16} height={16} />
-                Dashboard
+              <LinkItem href="/banAppeal" handleClose={handleClose} key="banAppeal">
+                <ScaleIcon width={16} height={16} />
+                Ban Appeal
               </LinkItem>
             ),
+            <LinkItem href="/dashboard" handleClose={handleClose} key="dashboard">
+              <ComputerDesktopIcon width={16} height={16} />
+              Dashboard
+            </LinkItem>,
             <li onClick={handleClose} key="logout">
               <form action={userLogout.bind(undefined, pathname)}>
                 <button
