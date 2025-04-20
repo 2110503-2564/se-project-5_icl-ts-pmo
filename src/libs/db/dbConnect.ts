@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { getModel as createUserModel } from "./models/User";
 import { getModel as createCoworkingSpaceModel } from "./models/CoworkingSpace";
 import { getModel as createReservationModel } from "./models/Reservation";
+import { getModel as createBanIssueModel } from "./models/BanIssue";
+import { getModel as createBanAppealModel } from "./models/BanAppeal";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -34,6 +36,8 @@ async function dbConnect() {
       createUserModel();
       createCoworkingSpaceModel();
       createReservationModel();
+      createBanIssueModel();
+      createBanAppealModel();
     } catch (err) {
       cached.promise = undefined;
       console.error(err);

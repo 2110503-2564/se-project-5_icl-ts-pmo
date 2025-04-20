@@ -21,14 +21,16 @@ const schemaDefinition = {
   postalcode: { type: String, required: true, maxlength: [5, "Postal code can not be more than 5 digits"] },
   openTime: { type: Date, required: true },
   closeTime: { type: Date, required: true },
-  tel: { type: String },
+  tel: { type: String, required: false },
   picture: { type: String, required: false },
+  owner: { type: mongoose.Schema.ObjectId, ref: "User", required: true },
 } as const;
 
 export type CWS = mongoose.InferRawDocType<typeof schemaDefinition> & {
   _id: string;
   openTime: string;
   closeTime: string;
+  owner: string;
 };
 const CoworkingSpaceSchema = new mongoose.Schema<CWS>(schemaDefinition, {
   id: false,

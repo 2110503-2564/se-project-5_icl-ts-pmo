@@ -2,52 +2,96 @@
 
 skinparam Linetype ortho
 
-entity User {
-  * _id: ObjectId
-  --
-  * name: string
-  * phone: string
-  * email: string <<unique>>
-  * password: string
-  * role: string 
-  --
-  resetPasswordToken: string
-  resetPasswordExpire: Date
-  createdAt: Date
+package MainSystem {
+  entity User {
+    * _id: ObjectId
+    --
+    * name: string
+    * phone: string
+    * email: string <<unique>>
+    * password: string
+    * role: string 
+    * createdAt: Date
+    --
+    resetPasswordToken: string
+    resetPasswordExpire: Date
+  }
+
+  entity CoworkingSpace {
+    * _id: ObjectId
+    --
+    * owner: ObjectId <<fk>>
+    --
+    * name: string <<unique>>
+    * description: string
+    * openTime: DateTime
+    * closeTime: DateTime
+    tel: string
+    picture: string
+    --
+    * address: string
+    * province: string
+    * district: string
+    * subDistrict: string
+    * postalcode: string
+  }
+
+  entity Reservation {
+    * _id: ObjectId
+    --
+    * user: ObjectId <<fk>>
+    * coworkingSpace: ObjectId <<fk>>
+    --
+    * startDate: Date
+    * endDate: Date
+    * personCount: number
+    * approvalStatus: Enum
+    --
+    createdAt: Date
+  }
+
+  User ||..o{ Reservation
+  CoworkingSpace ||..o{ Reservation
 }
 
-entity CoworkingSpace {
-  * _id: ObjectId
-  --
-  * name: string <<unique>>
-  * description: string
-  * openTime: DateTime
-  * closeTime: DateTime
-  tel: string
-  picture: string
-  --
-  * address: string
-  * province: string
-  * district: string
-  * subDistrict: string
-  * postalcode: string
+package BanSystem {
+  entity BanIssue {
+    * _id: ObjectId
+    --
+    * user: ObjectId <<fk>>
+    * admin: ObjectId <<fk>>
+    --
+    * title: string
+    * description: string
+    * createdAt: Date
+    * endDate: Date
+    * isResolved: boolean
+    resolvedAt: Date
+  }
+
+  entity BanAppeal {
+    * _id: ObjectId
+    --
+    * banIssue: ObjectId <<fk>>
+    --
+    * description: string
+    * createdAt: Date
+    * comment: Comment[]
+    * resolveStatus: pending | denied | resolved
+    resolvedAt: Date
+  }
+
+  entity Comment {
+    * _id: ObjectId
+    --
+    * user: ObjectId
+    * text: string
+    * createdAt: Date
+  }
+
+  User ||..o{ BanIssue
+  BanIssue ||..o{ BanAppeal
+  BanAppeal [comment] *- "0..*" Comment
 }
-
-entity Reservation {
-  * _id: ObjectId
-  --
-  * user: ObjectId <<fk>>
-  * coworkingSpace: ObjectId <<fk>>
-  * startDate: Date
-  * endDate: Date
-  * personCount: number
-  * approvalStatus: Enum
-  --
-  createdAt: Date
-}
-
-
-User ||..o{ Reservation
-CoworkingSpace ||..o{ Reservation
 
 @enduml

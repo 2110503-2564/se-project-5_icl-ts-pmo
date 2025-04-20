@@ -5,8 +5,9 @@ import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
 import dbConnect from "@/libs/db/dbConnect";
-import User from "@/libs/db/models/User";
+import User, { type UserType as UserType } from "@/libs/db/models/User";
 import { isProtectedPage } from "@/utils";
+import { FilterQuery, QueryOptions } from "mongoose";
 
 const emailField = z
   .string({ required_error: "Email is required" })
@@ -87,5 +88,18 @@ export async function getMe() {
       [session.user.id],
       { revalidate: 780 }
     )();
+  return { success: false };
+}
+
+export async function getUserList(filter: FilterQuery<UserType> = {}, options: QueryOptions<UserType> = {}) {
+  await dbConnect();
+  try {
+    const users = await User.find(filter, undefined, options);
+    if (users) {
+      return { success: true, count: users.length, data: users.map((e) => e.toObject()) };
+    }
+  } catch (err) {
+    console.error(err);
+  }
   return { success: false };
 }
