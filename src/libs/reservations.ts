@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import dbConnect from "./db/dbConnect";
 import Reservation, { type Reservation as ReservationType } from "./db/models/Reservation";
 import { CWS } from "./db/models/CoworkingSpace";
-import { User } from "./db/models/User";
+import { UserType } from "./db/models/User";
 import mongoose from "mongoose";
 
 export async function getReservations(
@@ -18,16 +18,24 @@ export async function getReservations(
 ) {
   const session = await auth();
   if (session) {
-    if (session.user.role != "admin") {
-      filter.user = mongoose.Types.ObjectId.createFromHexString(session.user.id);
-    }
+    console.log("MISS");
     return await unstable_cache(
       async () => {
         await dbConnect();
         try {
+          try {
+            new RegExp(search);
+          }catch(error){
+            if(error instanceof SyntaxError){
+              search = "^$."
+            }
+          }
           const result = (
             await Reservation.aggregate<{
-              data: (ReservationType & { user: User; coworkingSpace: CWS })[];
+              data: (Omit<Omit<ReservationType, "coworkingSpace">, "user"> & {
+                user: UserType;
+                coworkingSpace: CWS;
+              })[];
               total: number;
             }>([
               { $match: filter },
@@ -40,7 +48,23 @@ export async function getReservations(
                   pipeline: [{ $match: { name: { $regex: search } } }],
                 },
               },
-              { $match: { coworkingSpace: { $not: { $size: 0 } } } },
+              {
+                $match: {
+                  coworkingSpace: { $not: { $size: 0 } },
+                  ...(session.user.role == "admin" ?
+                    {}
+                  : {
+                      $or: [
+                        {
+                          "coworkingSpace.owner": mongoose.Types.ObjectId.createFromHexString(
+                            session.user.id
+                          ),
+                        },
+                        { user: mongoose.Types.ObjectId.createFromHexString(session.user.id) },
+                      ],
+                    }),
+                },
+              },
               { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "user" } },
               {
                 $set: {
@@ -53,6 +77,7 @@ export async function getReservations(
                   _id: { $toString: "$_id" },
                   "user._id": { $toString: "$user._id" },
                   "coworkingSpace._id": { $toString: "$coworkingSpace._id" },
+                  "coworkingSpace.owner": { $toString: "$coworkingSpace.owner" },
                 },
               },
               { $group: { _id: null, data: { $push: "$$ROOT" }, total: { $count: {} } } },
@@ -67,7 +92,7 @@ export async function getReservations(
         }
         return { success: false };
       },
-      [page.toString(), limit.toString(), search, JSON.stringify(filter)],
+      [page.toString(), limit.toString(), search, JSON.stringify(filter), JSON.stringify(session.user)],
       { tags: ["reservations"], revalidate: 60 }
     )();
   }
@@ -81,15 +106,16 @@ export async function getReservation(id: string) {
       async () => {
         await dbConnect();
         try {
-          const reservation = await Reservation.findById(id).populate<{ coworkingSpace: CWS }>(
-            "coworkingSpace"
-          );
+          const reservation = (
+            await Reservation.findById(id).populate<{ coworkingSpace: CWS }>("coworkingSpace")
+          )?.toObject();
           if (reservation) {
             if (
-              (session && reservation.user.toHexString() == session.user.id)
+              reservation.user == session.user.id
               || session.user.role == "admin"
+              || session.user.id == reservation.coworkingSpace.owner
             ) {
-              return { success: true, data: reservation.toObject() };
+              return { success: true, data: reservation };
             }
           } else {
             return { success: false, message: "Reservation not found" };
@@ -157,9 +183,15 @@ export async function editReservation(formState: unknown, formData: FormData) {
   if (validatedFields.success) {
     await dbConnect();
     try {
-      const reservation = await Reservation.findById(id);
+      const reservation = (
+        await Reservation.findById(id).populate<{ coworkingSpace: CWS }>("coworkingSpace")
+      )?.toObject();
       if (!reservation) return { success: false, message: "Reservation not found" };
-      if (reservation.user.toString() !== session.user.id && session.user.role !== "admin") {
+      if (
+        reservation.user !== session.user.id
+        && session.user.role !== "admin"
+        && session.user.id != reservation.coworkingSpace.owner
+      ) {
         return { success: false, message: "You are not authorized to update this reservation" };
       }
       const updatedReservation = await Reservation.findByIdAndUpdate(id, validatedFields.data, {
@@ -184,14 +216,19 @@ export async function deleteReservation(formState: unknown, formData: FormData) 
   if (!session || !id) return { success: false };
   await dbConnect();
   try {
-    const reservation = await Reservation.findById(id);
+    const reservation = (
+      await Reservation.findById(id).populate<{ coworkingSpace: CWS }>("coworkingSpace")
+    )?.toObject();
     if (!reservation) return { success: false, message: "Reservation not found" };
-    //Make sure user is the reservation owner
-    if (reservation.user.toString() !== session.user.id && session.user.role !== "admin") {
+    if (
+      reservation.user !== session.user.id
+      && session.user.role !== "admin"
+      && session.user.id != reservation.coworkingSpace.owner
+    ) {
       return { success: false, message: "You are not authorized to delete this reservation" };
     }
-    const result = await reservation.deleteOne();
-    if (result.acknowledged) {
+    const result = await Reservation.findByIdAndDelete(id);
+    if (result) {
       revalidateTag("reservations");
       return { success: true };
     }

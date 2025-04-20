@@ -20,8 +20,8 @@ const schemaDefinition = {
   createdAt: { type: Date, default: Date.now },
 } as const;
 
-export type User = mongoose.InferRawDocType<typeof schemaDefinition> & { _id: string };
-const UserSchema = new mongoose.Schema<User>(schemaDefinition, {
+export type UserType = mongoose.InferRawDocType<typeof schemaDefinition> & { _id: string };
+const UserSchema = new mongoose.Schema<UserType>(schemaDefinition, {
   toJSON: { virtuals: true },
   toObject: { virtuals: true, flattenObjectIds: true },
 });
