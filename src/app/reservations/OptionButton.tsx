@@ -58,7 +58,7 @@ export default function OptionButton({
           // * Refactor if possible
           && [
             ...(session.user.id == reservation.user._id ? [{ status: "canceled", text: "Cancel" }] : []),
-            ...(session.user.role == "admin" || session.user.id == reservation.coworkingSpace._id ?
+            ...(session.user.role == "admin" || session.user.id == reservation.coworkingSpace.owner ?
               [
                 { status: "approved", text: "Approve" },
                 { status: "rejected", text: "Reject" },
