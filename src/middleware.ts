@@ -19,6 +19,7 @@ const authMiddleware = auth(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json", cookie: req.headers.get("Cookie") || "" },
       body: JSON.stringify({ id: req.auth.user.id }),
+      next: { revalidate: 60, tags: ["banIssues"] },
     }).then((e) => e.json())) as Awaited<ReturnType<typeof checkBanAPI>>;
     if (response.isBanned) {
       return NextResponse.redirect(new URL(`/banIssue?time=current&resolve=no`, req.nextUrl));

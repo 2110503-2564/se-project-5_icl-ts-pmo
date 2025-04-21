@@ -20,10 +20,10 @@ export async function getBanIssues(
   if (!session) return { success: false, message: "unauthorized" };
   if (session.user.role != "admin")
     filter.user = mongoose.Types.ObjectId.createFromHexString(session.user.id);
-  try{
+  try {
     new RegExp(search);
-  }catch(error){
-    if(error instanceof SyntaxError){
+  } catch (error) {
+    if (error instanceof SyntaxError) {
       search = "^$.";
     }
   }
@@ -66,8 +66,8 @@ export async function createBanIssue(formState: unknown, formData: FormData) {
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await BanIssueSchema.safeParseAsync(data);
   if (validatedFields.success) {
-    if(new Date(validatedFields.data.endDate) <= new Date(Date.now())){
-      return { success: false, message: "You cannot pick time in the past"}
+    if (new Date(validatedFields.data.endDate) <= new Date(Date.now())) {
+      return { success: false, message: "You cannot pick time in the past" };
     }
     await dbConnect();
     try {
@@ -121,9 +121,14 @@ export async function resolveBanIssue(id: string) {
 export async function resolveExpiredBan() {
   try {
     await dbConnect();
-    await BanIssue.updateMany({isResolved: false, endDate: {$lte: Date.now()}},[{$set: {isResolved: true, resolvedAt: "$endDate"}}]);
+    const result = await BanIssue.updateMany({ isResolved: false, endDate: { $lte: Date.now() } }, [
+      { $set: { isResolved: true, resolvedAt: "$endDate" } },
+    ]);
+    if (result.matchedCount) {
+      revalidateTag("banIssues");
+    }
     return { success: true };
   } catch (error) {
-    return { success: false , message: error};
+    return { success: false, message: error };
   }
 }
