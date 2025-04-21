@@ -17,7 +17,7 @@ export default function Register() {
           <h1>Register</h1>
           <form className="flex flex-col items-center gap-4 py-4" action={action}>
             <RedirectToInput />
-            {(["name", "email", "phone"] as const).map((e) => (
+            {(["name", "email", "phone"] as const).map((e, index) => (
               <TextField
                 className="w-full"
                 key={e}
@@ -28,6 +28,7 @@ export default function Register() {
                 error={!!state?.error?.fieldErrors[e]}
                 helperText={state?.error?.fieldErrors[e]?.join()}
                 defaultValue={state?.data ? state.data[e].toString() : null}
+                autoFocus={index == 0}
                 required
               />
             ))}

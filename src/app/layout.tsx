@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
+import SnackbarProvider from "@/provider/SnackbarProvider";
 import TopMenu from "@/components/TopMenu";
 import "./globals.css";
 
@@ -13,8 +14,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body className="mt-12">
         <SessionProvider>
-          <TopMenu />
-          {children}
+          <SnackbarProvider>
+            <TopMenu />
+            {children}
+          </SnackbarProvider>
         </SessionProvider>
       </body>
     </html>

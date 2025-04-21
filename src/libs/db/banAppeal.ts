@@ -1,14 +1,14 @@
-import mongoose, { FilterQuery } from "mongoose";
-import BanAppeal, { BanAppealType, Comment } from "./models/BanAppeal";
-import { BanIssueType } from "./models/BanIssue";
-import { UserType } from "./models/User";
 import { unstable_cache } from "next/cache";
+import mongoose from "mongoose";
 import dbConnect from "./dbConnect";
+import { UserType } from "./models/User";
+import { BanIssueType } from "./models/BanIssue";
+import BanAppeal, { BanAppealType, Comment } from "./models/BanAppeal";
 
 export const getBanAppealsDB = unstable_cache(
   // TODO: Add search & filtering
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async (filter: FilterQuery<BanAppealType> = {}, page: number, limit: number, search: string) => {
+  async (filter: mongoose.FilterQuery<BanAppealType> = {}, page: number, limit: number, search: string) => {
     await dbConnect();
     return (
       await BanAppeal.aggregate<

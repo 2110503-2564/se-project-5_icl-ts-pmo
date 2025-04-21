@@ -8,7 +8,7 @@ import DetailBody from "./DetailBody";
 export default async function Reservation({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const response = await getReservation(id);
-  if (!response.data) return <main>Cannot fetch data</main>;
+  if (!response.data) return <main>{response.message || "Cannot fetch data"}</main>;
 
   const { data: reservation } = response;
   const startDate = new Date(reservation.startDate);

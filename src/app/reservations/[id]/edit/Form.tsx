@@ -7,16 +7,16 @@ import { useRouter } from "next/navigation";
 import { Button, TextField } from "@mui/material";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { CWS } from "@/libs/db/models/CoworkingSpace";
-import { Reservation } from "@/libs/db/models/Reservation";
-import { editReservation } from "@/libs/reservations";
+import { ReservationType } from "@/libs/db/models/Reservation";
+import { updateReservationStatus } from "@/libs/reservations";
 import DateTimeField from "@/components/DateTimeField";
 
 export default function EditReservationForm({
   reservation,
 }: {
-  reservation: Omit<Reservation, "coworkingSpace"> & { coworkingSpace: CWS };
+  reservation: Omit<ReservationType, "coworkingSpace"> & { coworkingSpace: CWS };
 }) {
-  const [state, action, pending] = useActionState(editReservation, undefined);
+  const [state, action, pending] = useActionState(updateReservationStatus, undefined);
   const router = useRouter();
 
   useEffect(() => {

@@ -17,7 +17,7 @@ export default function ReserveForm({ id }: { id: string }) {
   }, [state, router]);
   return (
     <form className="flex flex-col items-center gap-4 p-4" action={action}>
-      <input type="text" name="coworkingSpaceId" value={id} hidden readOnly />
+      <input type="text" name="coworkingSpace" value={id} hidden readOnly />
       <TextField
         type="number"
         name="personCount"

@@ -10,13 +10,13 @@ const schemaDefinition = {
   createdAt: { type: Date, default: Date.now },
 } as const;
 
-export type Reservation = mongoose.InferRawDocType<typeof schemaDefinition> & {
+export type ReservationType = mongoose.InferRawDocType<typeof schemaDefinition> & {
   _id: string;
   user: string;
   coworkingSpace: string;
 };
 
-const ReservationSchema = new mongoose.Schema<Reservation>(schemaDefinition, {
+const ReservationSchema = new mongoose.Schema<ReservationType>(schemaDefinition, {
   toJSON: { virtuals: true },
   toObject: { virtuals: true, flattenObjectIds: true },
 });

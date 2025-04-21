@@ -3,7 +3,15 @@
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { TablePagination } from "@mui/material";
 
-export default function TablePaginationSP({ page, limit, total }: { page: number; limit: number; total: number }) {
+export default function TablePaginationSP({
+  page,
+  limit,
+  total,
+}: {
+  page: number;
+  limit: number;
+  total: number;
+}) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { replace } = useRouter();
@@ -29,6 +37,8 @@ export default function TablePaginationSP({ page, limit, total }: { page: number
 
   return (
     <TablePagination
+      showFirstButton
+      showLastButton
       component="div"
       count={total}
       page={page}

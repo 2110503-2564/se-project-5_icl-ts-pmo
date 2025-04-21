@@ -2,11 +2,14 @@
 
 import { Session } from "next-auth";
 import bcrypt from "bcryptjs";
-import dbConnect from "../db/dbConnect";
+import dbConnect from "@/libs/db/dbConnect";
 import User from "@/libs/db/models/User";
 
 // authjs middleware edge runtime bypass
-export async function checkValidityAPI(email: string, password: string): Promise<{ data: Session["user"] | null }> {
+export async function checkValidityAPI(
+  email: string,
+  password: string
+): Promise<{ data: Session["user"] | null }> {
   await dbConnect();
   try {
     if (email && password) {

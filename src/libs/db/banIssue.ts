@@ -1,12 +1,17 @@
 import { unstable_cache } from "next/cache";
+import mongoose from "mongoose";
 import dbConnect from "./dbConnect";
-import { BanAppealType } from "./models/BanAppeal";
-import mongoose, { FilterQuery } from "mongoose";
-import BanIssue, { BanIssueType } from "./models/BanIssue";
 import { UserType } from "./models/User";
+import BanIssue, { BanIssueType } from "./models/BanIssue";
+import { BanAppealType } from "./models/BanAppeal";
 
 export const getBanIssuesDB = unstable_cache(
-  async (filter: FilterQuery<BanIssueType>, page: number = 0, limit: number = 5, search: string = "") => {
+  async (
+    filter: mongoose.FilterQuery<BanIssueType>,
+    page: number = 0,
+    limit: number = 5,
+    search: string = ""
+  ) => {
     // console.log("MISS");
     await dbConnect();
     return (

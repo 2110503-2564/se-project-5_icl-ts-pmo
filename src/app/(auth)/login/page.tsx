@@ -26,6 +26,7 @@ export default function Login() {
               error={!!state?.error?.fieldErrors.email}
               helperText={state?.error?.fieldErrors.email?.join()}
               defaultValue={state?.data?.email.toString() || null}
+              autoFocus
               required
             />
             <PasswordField

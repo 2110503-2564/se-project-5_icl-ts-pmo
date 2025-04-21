@@ -5,10 +5,10 @@ import { readPaginationSearchParams, readSearchParams } from "@/utils";
 import AvatarIcon from "@/components/AvatarIcon";
 import SearchFieldSP from "@/components/SearchFieldSP";
 import TablePaginationSP from "@/components/TablePaginationSP";
-import OptionButton from "./OptionButton";
 import FilterDialog from "./FilterDialog";
 import DateCell from "./DateCell";
 import { getBanAppeals } from "@/libs/banAppeal";
+import OptionButton from "./OptionButton";
 
 export default async function BanAppealTable({
   searchParams,

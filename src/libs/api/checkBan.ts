@@ -1,7 +1,7 @@
 "use server";
 
-import dbConnect from "../db/dbConnect";
-import BanIssue from "../db/models/BanIssue";
+import dbConnect from "@/libs/db/dbConnect";
+import BanIssue from "@/libs/db/models/BanIssue";
 import { resolveExpiredBan } from "../banIssue";
 
 export async function checkBanAPI(id: string) {
@@ -25,11 +25,11 @@ export async function checkBanIssue(id: string) {
     await resolveExpiredBan();
     await dbConnect();
     const issue = await BanIssue.findById(id);
-    if(!issue){
-      return {success: false, message: "Ban issue not found"};
+    if (!issue) {
+      return { success: false, message: "Ban issue not found" };
     }
-    return {success: true, isBanned: !issue.isResolved};
+    return { success: true, isBanned: !issue.isResolved };
   } catch (error) {
-    return {success: false, message: error};
+    return { success: false, message: error };
   }
 }

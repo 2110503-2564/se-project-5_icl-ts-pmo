@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+import SearchFieldSP from "@/components/SearchFieldSP";
 import { readPaginationSearchParams, readSearchParams } from "@/utils";
-import ReservationTable from "./ReservationTable";
+import FilterDialog from "./FilterDialog";
+import TableBody, { ReserveTableSkeleton } from "./ReserveTable";
 
 export default async function Reservations({
   searchParams,
@@ -15,7 +18,15 @@ export default async function Reservations({
   return (
     <main className="p-4">
       <h1>Reservations</h1>
-      <ReservationTable page={page} limit={limit} search={search} min={min} max={max} />
+      <div className="mx-auto max-w-5xl rounded-3xl border p-8">
+        <div className="flex items-center justify-center gap-4 pb-2">
+          <SearchFieldSP search={search} />
+          <FilterDialog />
+        </div>
+        <Suspense fallback={<ReserveTableSkeleton />}>
+          <TableBody page={page} limit={limit} search={search} min={min} max={max} />
+        </Suspense>
+      </div>
     </main>
   );
 }
