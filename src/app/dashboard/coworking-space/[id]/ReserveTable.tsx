@@ -34,6 +34,16 @@ export default async function ReserveTable({
   const response = await getCoworkingReservations(id, session, { page, limit, min, max, status });
   if (!response.success) return <main>Cannot fetch data</main>;
 
+  if (response.total == 0 && session.user.role == "admin")
+    return (
+      <div className="mx-auto my-[20px] text-center text-xl">
+        This co-working space has never has any reservations.
+      </div>
+    );
+
+  if (response.total == 0 && session.user.role == "user")
+    return <div className="mx-auto my-[20px] text-center text-xl">You don't have any reservations.</div>;
+
   return (
     <Paper sx={{ width: "100%", overflow: "hidden" }}>
       <TableContainer sx={{ maxHeight: 440 }}>

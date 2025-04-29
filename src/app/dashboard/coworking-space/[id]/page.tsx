@@ -25,11 +25,9 @@ export default async function Reservations({
   return (
     <main className="p-4">
       <h1>{coworkingSpace.name}&lsquo;s Reservations</h1>
-      <div className="mx-auto max-w-5xl rounded-3xl border p-8">
-        <Suspense fallback={<ReserveTableSkeleton />}>
-          <ReserveTable {...{ id, page, limit, min, max, status, session, coworkingSpace }} />
-        </Suspense>
-      </div>
+      <Suspense fallback={<ReserveTableSkeleton />}>
+        <ReserveTable {...{ id, page, limit, min, max, status, session, coworkingSpace }} />
+      </Suspense>
     </main>
   );
 }
