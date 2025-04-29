@@ -1,8 +1,9 @@
-import { CWS } from "./libs/db/models/CoworkingSpace";
+import { redirect } from "next/navigation";
+import { auth } from "./auth";
+import { CoworkingSpaceType } from "./libs/types";
 
 const protectedPages = [
-  "/profile",
-  "/banIssue",
+  "/banIssue.*",
   "/banAppeal",
   "/coworking-space/.*/edit",
   "/reservations.*",
@@ -13,17 +14,42 @@ export function isProtectedPage(pathname: string) {
   return protectedPathnameRegex.test(pathname);
 }
 
-export function concatAddress(coworkingSpace: CWS) {
+export async function authLoggedIn(pathname: string) {
+  const session = await auth();
+  if (!session) {
+    redirect(`/login?callbackUrl=${pathname}&redirected=true`);
+  }
+  return session;
+}
+
+export function concatAddress(coworkingSpace: CoworkingSpaceType) {
   return `${coworkingSpace.address} ${coworkingSpace.district} ${coworkingSpace.subDistrict} ${coworkingSpace.province}, ${coworkingSpace.postalcode}`;
 }
 
-export function readSearchParams(params: { [key: string]: string | string[] | undefined }, key: string) {
+export type SearchParams = { [key: string]: string | string[] | undefined };
+
+export function readSearchParams(params: SearchParams, key: string) {
   return params[key] instanceof Array ? params[key][0] : params[key];
 }
 
-export function readPaginationSearchParams(params: { [key: string]: string | string[] | undefined }) {
+export function readMutipleSearchParams<T extends string>(params: SearchParams, ...keys: T[]) {
+  return Object.fromEntries(keys.map((key) => [key, readSearchParams(params, key)])) as {
+    [P in T]: ReturnType<typeof readSearchParams>;
+  };
+}
+
+export function readPaginationSearchParams(params: SearchParams) {
   return {
     page: (Number(readSearchParams(params, "page")) || 1) - 1,
     limit: Number(readSearchParams(params, "limit")) || undefined,
   };
+}
+
+export function validateRegex(value: string) {
+  try {
+    new RegExp(value);
+  } catch {
+    return "^$.";
+  }
+  return value;
 }

@@ -8,10 +8,11 @@ export default function PaginationSP({ page, limit, total }: { page: number; lim
   const { replace } = useRouter();
 
   const changePage = (value: number) => {
-    if (value == page) return;
-    const params = new URLSearchParams(searchParams);
-    params.set("page", value.toString());
-    replace(`${pathname}?${params.toString()}`);
+    if (value != page + 1) {
+      const params = new URLSearchParams(searchParams);
+      params.set("page", value.toString());
+      replace(`${pathname}?${params.toString()}`);
+    }
   };
 
   return (

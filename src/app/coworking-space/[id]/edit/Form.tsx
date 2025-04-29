@@ -7,10 +7,10 @@ import { useRouter } from "next/navigation";
 import { Button, TextField } from "@mui/material";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { editCoworkingSpace } from "@/libs/coworkingSpace";
-import { CWS } from "@/libs/db/models/CoworkingSpace";
 import TimeField from "@/components/TimeField";
+import { CoworkingSpaceType } from "@/libs/types";
 
-export default function EditCoworkingSpaceForm({ coworkingSpace }: { coworkingSpace: CWS }) {
+export default function EditCoworkingSpaceForm({ coworkingSpace }: { coworkingSpace: CoworkingSpaceType }) {
   const [state, action, pending] = useActionState(editCoworkingSpace, undefined);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [src, setSrc] = useState<string | undefined>(undefined);
@@ -18,9 +18,9 @@ export default function EditCoworkingSpaceForm({ coworkingSpace }: { coworkingSp
 
   useEffect(() => {
     if (state?.success) {
-      router.push("/dashboard");
+      router.push(`/coworking-space/${coworkingSpace._id}`);
     }
-  }, [state, router]);
+  }, [state, router, coworkingSpace]);
 
   return (
     <div className="mx-auto max-w-5xl rounded-3xl border p-8">
@@ -61,7 +61,7 @@ export default function EditCoworkingSpaceForm({ coworkingSpace }: { coworkingSp
               helperText={state?.error?.fieldErrors[name]?.join() || undefined}
               defaultValue={
                 (state?.data && state.data[name] && new Date(state.data[name].toString()))
-                || coworkingSpace[name]
+                || new Date(coworkingSpace[name])
               }
             />
           ))}

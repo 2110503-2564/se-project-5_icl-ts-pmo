@@ -1,59 +1,74 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
-import { Session } from "next-auth";
-import mongoose from "mongoose";
 import { z } from "zod";
 import { auth } from "@/auth";
-import dbConnect from "./db/dbConnect";
-import { getReservationDB, getReservationsDB } from "./db/reservation";
-import { CWS } from "./db/models/CoworkingSpace";
-import Reservation, { ReservationType } from "./db/models/Reservation";
+import {
+  createReservationAPI,
+  deleteReservationAPI,
+  getCoworkingSpaceReservationsAPI,
+  getReservationAPI,
+  getUserReservationsAPI,
+  updateReservationAPI,
+} from "./api/reservations";
+import { Session } from "next-auth";
+import { CoworkingSpaceType, ReservationType, UserType } from "./types";
 
-export async function getReservations(
-  filter: mongoose.FilterQuery<ReservationType> = {},
-  page: number = 0,
-  limit: number = 5,
-  search: string = ""
-) {
-  const session = await auth();
-  if (session) {
-    try {
-      new RegExp(search);
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        search = "^$.";
-      }
+export async function getUserReservations(
+  session: Session,
+  query?: { page?: number; limit?: number; min?: number; max?: number; status?: string; search?: string }
+): Promise<
+  | {
+      success: true;
+      total: number;
+      count: number;
+      data: (Omit<ReservationType, "coworkingSpace"> & { coworkingSpace: CoworkingSpaceType })[];
     }
-    try {
-      const { data, total } = await getReservationsDB(
-        filter,
-        { name: { $regex: search } },
-        session.user.role == "admin" ? undefined : session.user.id,
-        page,
-        limit
-      );
-      return { success: true, total: total, count: data.length, data };
-    } catch (error) {
-      console.error(error);
+  | { success: false }
+> {
+  try {
+    return await getUserReservationsAPI(session, query);
+  } catch (error) {
+    console.error(error);
+    return { success: false };
+  }
+}
+
+export async function getCoworkingReservations(
+  id: string,
+  session: Session,
+  query?: { page?: number; limit?: number; min?: number; max?: number; status?: string; search?: string }
+): Promise<
+  | {
+      success: true;
+      total: number;
+      count: number;
+      data: (Omit<ReservationType, "user"> & { user: UserType })[];
     }
+  | { success: false }
+> {
+  try {
+    const response = await getCoworkingSpaceReservationsAPI(id, session, query);
+    if (response.success)
+      return { success: true, data: response.data, count: response.count, total: response.total };
+  } catch (error) {
+    console.error(error);
   }
   return { success: false };
 }
 
-export async function getReservation(id: string) {
-  const session = await auth();
-  if (session) {
-    try {
-      const reservation = await getReservationDB(id);
-      if (!reservation) return { success: false, message: "Reservation not found" };
-      if (!checkPermission(session.user, reservation)) return { success: false, message: "No Permission" };
-      return { success: true, data: reservation };
-    } catch (error) {
-      console.error(error);
-    }
+export async function getReservation(
+  id: string,
+  session: Session
+): Promise<
+  | { success: true; data: Omit<ReservationType, "coworkingSpace"> & { coworkingSpace: CoworkingSpaceType } }
+  | { success: false }
+> {
+  try {
+    return getReservationAPI(id, session);
+  } catch (error) {
+    console.error(error);
+    return { success: false };
   }
-  return { success: false };
 }
 
 const CreateReservationForm = z.object({
@@ -64,92 +79,47 @@ const CreateReservationForm = z.object({
 });
 export async function createReservation(formState: unknown, formData: FormData) {
   const session = await auth();
-  if (!session) return { success: false };
+  if (!session) return { success: false, message: "unauthorized" };
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await CreateReservationForm.safeParseAsync({
     ...data,
     personCount: Number(data["personCount"]),
   });
-  if (validatedFields.success) {
-    try {
-      await dbConnect();
-      const existedReservations = await Reservation.countDocuments({ user: session.user.id });
-      if (existedReservations >= 3 && session.user.role !== "admin") {
-        return { success: false, message: "Reservation limit of 3 reached" };
-      }
-      const reservation = await Reservation.create({ ...validatedFields.data, user: session.user.id });
-      if (reservation) {
-        revalidateTag("reservations");
-        return { success: true, data: reservation.toObject() };
-      }
-    } catch (error) {
-      // TODO: Show error message from database to user
-      console.error(error);
-    }
+  if (!validatedFields.success) return { success: false, error: validatedFields.error.flatten(), data };
+  try {
+    const response = await createReservationAPI(validatedFields.data, session);
+    if (response.success) return { success: true, data: response.data };
+  } catch (error) {
+    console.error(error);
     return { success: false };
   }
-  return { success: false, error: validatedFields.error.flatten(), data };
 }
 
 export async function updateReservationStatus(formState: unknown, formData: FormData) {
   const session = await auth();
   if (!session) return { success: false, message: "unauthorized" };
   const id = formData.get("id")?.toString();
-  const approvalStatus = formData.get("approvalStatus")?.toString();
-  if (id && approvalStatus) {
-    await dbConnect();
-    try {
-      const reservation = await getReservationDB(id);
-      if (!reservation) return { success: false, message: "Reservation not found" };
-      if (reservation.approvalStatus != "pending")
-        return { success: false, message: "Cannot edit non-pending reservation" };
-      if (!checkPermission(session.user, reservation))
-        return { success: false, message: "You are not authorized to update this reservation" };
-      const updatedReservation = await Reservation.findByIdAndUpdate(
-        id,
-        { approvalStatus },
-        { new: true, runValidators: true }
-      );
-      if (updatedReservation) {
-        revalidateTag("reservations");
-        return { success: true, data: updatedReservation.toObject() };
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  const approvalStatus = await z
+    .enum(["pending", "canceled", "approved", "rejected"])
+    .safeParseAsync(formData.get("approvalStatus")?.toString());
+  if (!id || !approvalStatus.success) return { success: false, message: "Invalid Input (111)" };
+  try {
+    const result = await updateReservationAPI(id, { approvalStatus: approvalStatus.data }, session);
+    return result.success ? { success: true, data: result.data } : { success: false };
+  } catch (err) {
+    console.error(err);
+    return { success: false };
   }
-  return { success: false, message: "error occured on the database/server" };
 }
 
 export async function deleteReservation(formState: unknown, formData: FormData) {
   const session = await auth();
   if (!session) return { success: false, message: "unauthorized" };
   const id = formData.get("id")?.toString();
-  if (id) {
-    await dbConnect();
-    try {
-      const reservation = await getReservationDB(id);
-      if (!reservation) return { success: false, message: "Reservation not found" };
-      if (!checkPermission(session.user, reservation))
-        return { success: false, message: "You are not authorized to delete this reservation" };
-
-      const result = await Reservation.findByIdAndDelete(id);
-      if (result) {
-        revalidateTag("reservations");
-        return { success: true };
-      }
-    } catch (error) {
-      console.log(error);
-    }
+  if (!id) return { success: false, message: "Invalid Input (111)" };
+  try {
+    return await deleteReservationAPI(id, session);
+  } catch (error) {
+    console.log(error);
   }
-  return { success: false, message: "error occured" };
-}
-
-function checkPermission(
-  user: Session["user"],
-  reservation: Omit<ReservationType, "coworkingSpace"> & { coworkingSpace: CWS }
-) {
-  return (
-    reservation.user === user.id || user.role === "admin" || user.id === reservation.coworkingSpace.owner
-  );
 }

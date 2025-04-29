@@ -1,42 +1,49 @@
 "use server";
 
 import { auth } from "@/auth";
-import dbConnect from "@/libs/db/dbConnect";
-import BanAppeal, { BanAppealType } from "@/libs/db/models/BanAppeal";
 import { z } from "zod";
-import BanIssue from "./db/models/BanIssue";
-import { revalidateTag } from "next/cache";
-import { getBanAppealDB, getBanAppealsDB } from "./db/banAppeal";
-import { FilterQuery } from "mongoose";
+import { Session } from "next-auth";
+import {
+  createBanAppealAPI,
+  createBanAppealCommentAPI,
+  getBanAppealAPI,
+  getBanAppealsAPI,
+  updateBanAppealAPI,
+} from "./api/banIssue";
+import { BanAppealType, BanIssueType, CommentType, UserType } from "./types";
 
 export async function getBanAppeals(
-  filter: FilterQuery<BanAppealType> = {},
-  page: number = 0,
-  limit: number = 5,
-  search: string = ""
+  session: Session,
+  query?: { page?: number; limit?: number; search?: string }
 ) {
-  const session = await auth();
   if (!session || session.user.role != "admin") return { success: false, message: "unauthorized" };
   try {
-    const result = await getBanAppealsDB(filter, page, limit, search);
-    const data = result?.data || [];
-    const total = result?.total || 0;
-    return { success: true, total, count: data.length, data };
+    const response = await getBanAppealsAPI(session, query);
+    if (response.success)
+      return { success: true, data: response.data, count: response.count, total: response.total };
   } catch (err) {
     console.error(err);
   }
   return { success: false };
 }
 
-export async function getBanAppeal(id: string) {
-  const session = await auth();
-  if (!session) return { success: false, message: "unauthorized" };
+export async function getBanAppeal(
+  id: string,
+  appeal: string,
+  session: Session
+): Promise<
+  | {
+      success: true;
+      data: Omit<Omit<BanAppealType, "banIssue">, "comment"> & {
+        banIssue: BanIssueType;
+        comment: (Omit<CommentType, "user"> & { user: UserType })[];
+      };
+    }
+  | { success: false }
+> {
   try {
-    const banAppeal = await getBanAppealDB(id);
-    if (!banAppeal) return { success: false, message: "Ban Issue not found" };
-    if (banAppeal.banIssue.user != session.user.id && session.user.role != "admin")
-      return { success: false, message: "No permission to view this" };
-    return { success: true, data: banAppeal };
+    const response = await getBanAppealAPI(id, appeal, session);
+    if (response.success) return { success: true, data: response.data };
   } catch (error) {
     console.log(error);
   }
@@ -52,25 +59,14 @@ export async function createBanAppeal(formState: unknown, formData: FormData) {
   if (!session) return { success: false, message: "unauthorized" };
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await BanAppealSchema.safeParseAsync(data);
-  if (validatedFields.success) {
-    await dbConnect();
-    try {
-      const banIssue = (await BanIssue.findById(validatedFields.data.banIssue))?.toObject();
-      if (!banIssue) return { success: false, message: "ban issue not found" };
-      if (session.user.id != banIssue.user)
-        return { success: false, message: "You are not this ban issue target" };
-      const banAppeal = (await BanAppeal.insertOne(validatedFields.data))?.toObject();
-      if (banAppeal) {
-        revalidateTag("banAppeals");
-        revalidateTag(`banIssues-${validatedFields.data.banIssue}`);
-        return { success: true, data: banAppeal };
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    return { success: false };
+  if (!validatedFields.success) return { success: false, error: validatedFields.error.flatten(), data };
+  try {
+    const response = await createBanAppealAPI(validatedFields.data.banIssue, validatedFields.data, session);
+    if (response.success) return { success: true, data: response.data };
+  } catch (err) {
+    console.error(err);
   }
-  return { success: false, error: validatedFields.error.flatten(), data };
+  return { success: false };
 }
 
 const CommentSchema = z.object({
@@ -81,62 +77,41 @@ export async function createBanAppealComment(formState: unknown, formData: FormD
   const session = await auth();
   if (!session) return { success: false, message: "unauthorized" };
   const data = Object.fromEntries(formData.entries());
+  const id = formData.get("id")?.toString();
+  if (!id) return { success: false, message: "Invalid input (111)" };
   const validatedFields = await CommentSchema.safeParseAsync(data);
-  if (validatedFields.success) {
-    await dbConnect();
-    try {
-      const banAppeal = (
-        await BanAppeal.findByIdAndUpdate(
-          validatedFields.data.banAppeal,
-          { $push: { comment: { user: session.user.id, text: validatedFields.data.text } } },
-          { new: true, runValidators: true }
-        )
-      )?.toObject();
-      if (banAppeal) {
-        revalidateTag(`banAppeals-${banAppeal._id}`);
-        return { success: true };
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    return { success: false };
-  }
-  return { success: false, error: validatedFields.error.flatten(), data };
-}
-
-export async function resolveBanAppeal(id: string, resolveStatus: "denied" | "resolved") {
-  const session = await auth();
-  if (!session || session.user.role != "admin") return { success: false, message: "unauthorized" };
-  await dbConnect();
+  if (!validatedFields.success) return { success: false, error: validatedFields.error.flatten(), data };
   try {
-    const banAppeal = (await BanAppeal.findById(id))?.toObject();
-    if (banAppeal && banAppeal.resolveStatus == "pending") {
-      const resolvedAt = new Date();
-      const [updatedBanIssue, updatedBanAppeal] = await Promise.all([
-        BanIssue.findByIdAndUpdate(
-          banAppeal.banIssue,
-          { isResolved: resolveStatus == "resolved", resolvedAt },
-          { new: true, runValidators: true }
-        ),
-        resolveStatus == "resolved" ?
-          BanAppeal.findByIdAndUpdate(id, { resolveStatus, resolvedAt }, { new: true, runValidators: true })
-        : null,
-      ]);
-      revalidateTag("banAppeals");
-      revalidateTag(`banAppeals-${id}`);
-      if (resolveStatus == "resolved") {
-        revalidateTag(`banIssues`);
-        revalidateTag(`banIssues-${banAppeal.banIssue}`);
-        if (!updatedBanAppeal != !updatedBanIssue) {
-          console.error(
-            "FATAL: resolveBanAppeal() -> Ban issue and Ban appeal is not in sync with each other"
-          );
-        }
-      }
-      return { success: true };
-    }
+    const response = await createBanAppealCommentAPI(
+      id,
+      validatedFields.data.banAppeal,
+      validatedFields.data,
+      session
+    );
+    if (response.success) return { success: true };
   } catch (err) {
     console.error(err);
+    return { success: false, data };
   }
-  return { success: false };
+}
+
+export async function updateBanAppeal(formState: unknown, formData: FormData) {
+  const session = await auth();
+  if (!session || session.user.role != "admin") return { success: false, message: "unauthorized" };
+  const id = formData.get("id")?.toString();
+  const appeal = formData.get("appeal")?.toString();
+  if (!id || !appeal) return { success: false, message: "invalid input (111)" };
+  const validatedFields = await z
+    .enum(["pending", "denied", "resolved"])
+    .safeParseAsync(formData.get("status")?.toString());
+  if (!validatedFields.success) return { success: false };
+  const resolveStatus = validatedFields.data;
+
+  try {
+    const response = await updateBanAppealAPI(id, appeal, { resolveStatus }, session);
+    if (response.success) return { success: true, data: response.data };
+  } catch (err) {
+    console.error(err);
+    return { success: false };
+  }
 }

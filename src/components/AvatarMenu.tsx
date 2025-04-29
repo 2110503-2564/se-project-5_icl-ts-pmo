@@ -12,7 +12,6 @@ import {
   UserCircleIcon,
   ComputerDesktopIcon,
   NoSymbolIcon,
-  ScaleIcon,
 } from "@heroicons/react/24/outline";
 import AvatarIcon from "./AvatarIcon";
 import { userLogout } from "@/libs/auth";
@@ -75,7 +74,7 @@ export default function AvatarMenu({ session }: { session: Session | null }) {
       >
         {session ?
           [
-            <LinkItem href="/profile" handleClose={handleClose} key="profile">
+            <LinkItem href={`/user/${session.user._id}`} handleClose={handleClose} key="profile">
               <UserCircleIcon width={16} height={16} />
               Profile
             </LinkItem>,
@@ -83,13 +82,7 @@ export default function AvatarMenu({ session }: { session: Session | null }) {
               <NoSymbolIcon width={16} height={16} />
               Ban Issues
             </LinkItem>,
-            session.user.role == "admin" && (
-              <LinkItem href="/banAppeal" handleClose={handleClose} key="banAppeal">
-                <ScaleIcon width={16} height={16} />
-                Ban Appeal
-              </LinkItem>
-            ),
-            <LinkItem href="/dashboard" handleClose={handleClose} key="dashboard">
+            <LinkItem href="/dashboard/coworking-space" handleClose={handleClose} key="dashboard">
               <ComputerDesktopIcon width={16} height={16} />
               Dashboard
             </LinkItem>,

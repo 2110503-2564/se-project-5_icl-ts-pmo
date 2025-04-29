@@ -41,14 +41,13 @@ export default function SnackbarProvider({ children }: { children: Readonly<Reac
     <>
       <SnackpackStateContext.Provider value={snackPackState}>{children}</SnackpackStateContext.Provider>
       <MuiSnackbar
+        autoHideDuration={3000}
         {...{ ...info, key: undefined }}
-        // anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         key={info?.key}
         open={open}
         onClose={handleClose}
         slots={{ transition: Fade }}
         slotProps={{ transition: { onExited: handleExited } }}
-        autoHideDuration={3000}
       />
     </>
   );

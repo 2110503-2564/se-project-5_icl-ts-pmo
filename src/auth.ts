@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { checkValidityAPI } from "./libs/api/checkValidity";
+import { loginAPI } from "./libs/api/auth";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -9,20 +9,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         // already validated when called in @libs/auth
-        const { email, password } = credentials;
-        // authjs middleware edge runtime bypass
-        const response = await fetch(`${req.headers.get("origin")}/api/auth/checkValidity`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", cookie: req.headers.get("Cookie") || "" },
-          body: JSON.stringify({ email, password }),
-        });
-        if (!response.ok) {
-          console.error("CheckValidity Unsuccessful", response);
-          return null;
-        }
-        return ((await response.json()) as Awaited<ReturnType<typeof checkValidityAPI>>).data;
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+        const response = await loginAPI({ email, password });
+        return response.success ? { ...response.data, token: response.token } : null;
       },
     }),
   ],

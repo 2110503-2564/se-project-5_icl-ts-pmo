@@ -1,21 +1,20 @@
 import Link from "next/link";
-import clsx from "clsx";
-import { auth } from "@/auth";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { getBanAppeal, resolveBanAppeal } from "@/libs/banAppeal";
+import { getBanAppeal, updateBanAppeal } from "@/libs/banAppeal";
 import AvatarIcon from "@/components/AvatarIcon";
-import OptionButton from "@/components/OptionButton";
 import CommentForm from "./CommentForm";
+import { BanIssueStatus } from "@/components/banIssue/TableBodyCell";
+import { AppealStatus } from "@/components/banAppeal/TableBodyCell";
+import BanAppealOptionButton from "@/components/banAppeal/OptionButton";
+import { authLoggedIn } from "@/utils";
 
 export default async function BanAppeal({ params }: { params: Promise<{ id: string; appeal: string }> }) {
-  const session = await auth();
-  if (!session) return <main>You are not logged in</main>;
-
-  const { appeal } = await params;
-  const response = await getBanAppeal(appeal);
-  if (!response.data) return <main>Cannot fetch data</main>;
-
+  const { id, appeal } = await params;
+  const session = await authLoggedIn(`/banIssue/${id}/${appeal}`);
+  const response = await getBanAppeal(id, appeal, session);
+  if (!response.success) return <main>Cannot fetch data</main>;
   const { data: banAppeal } = response;
+
   const { banIssue } = banAppeal;
   const createdAt = new Date(banIssue.createdAt);
   const endDate = new Date(banIssue.endDate);
@@ -28,37 +27,20 @@ export default async function BanAppeal({ params }: { params: Promise<{ id: stri
             <div className="flex items-center justify-between">
               <h1 className="!text-left">{banIssue.title}</h1>
               <div className="flex items-center gap-2">
-                <span
-                  className={clsx(
-                    "inline-block aspect-square h-2 w-2 justify-self-center rounded-full",
-                    banIssue.isResolved ? "bg-green-500" : "bg-red-500"
-                  )}
-                ></span>
-                <span>{banIssue.isResolved ? "Resolved" : "Not Resolved"}</span>
+                <BanIssueStatus isResolved={banIssue.isResolved} />
                 {session.user.role == "admin" && banAppeal.resolveStatus == "pending" && (
-                  <OptionButton>
-                    {[
-                      { text: "Approve", action: resolveBanAppeal.bind(undefined, appeal, "resolved") },
-                      { text: "Deny", action: resolveBanAppeal.bind(undefined, appeal, "denied") },
-                    ].map(({ text, action }) => (
-                      <li key={text}>
-                        <form
-                          action={async () => {
-                            "use server";
-                            await action();
-                          }}
-                        >
-                          <input type="text" name="id" value={banAppeal._id} hidden readOnly />
-                          <button
-                            className="w-full cursor-pointer px-4 py-1.5 text-left hover:bg-gray-100"
-                            type="submit"
-                          >
-                            {text}
-                          </button>
-                        </form>
-                      </li>
-                    ))}
-                  </OptionButton>
+                  <BanAppealOptionButton
+                    banIssueID={id}
+                    banAppealID={appeal}
+                    edit={{
+                      approve: true,
+                      deny: true,
+                      action: async (e) => {
+                        "use server";
+                        await updateBanAppeal(undefined, e);
+                      },
+                    }}
+                  />
                 )}
               </div>
             </div>
@@ -71,24 +53,14 @@ export default async function BanAppeal({ params }: { params: Promise<{ id: stri
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-8">
               <h2 className="text-xl font-bold">Ban Appeal</h2>
-              <div className="flex items-center gap-2">
-                <span
-                  className={clsx(
-                    "inline-block aspect-square h-2 w-2 justify-self-center rounded-full",
-                    banAppeal.resolveStatus == "pending" && "bg-amber-300",
-                    banAppeal.resolveStatus == "denied" && "bg-red-500",
-                    banAppeal.resolveStatus == "resolved" && "bg-green-500"
-                  )}
-                ></span>
-                <span>{banAppeal.resolveStatus}</span>
-              </div>
+              <AppealStatus resolveStatus={banAppeal.resolveStatus} />
             </div>
             <span>Appeal description: {banAppeal.description}</span>
           </div>
         </div>
         <section>
           <h2 className="text-xl font-bold">Comments</h2>
-          <CommentForm id={appeal} />
+          <CommentForm id={id} appeal={appeal} />
           {banAppeal.comment.map((e) => (
             <div className="flex items-start gap-2" key={e._id}>
               <span className="mt-2">

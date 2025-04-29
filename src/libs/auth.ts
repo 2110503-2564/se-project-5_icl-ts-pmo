@@ -1,13 +1,11 @@
 "use server";
 
 import { AuthError } from "next-auth";
-import { unstable_cache } from "next/cache";
 import { z } from "zod";
-import { auth, signIn, signOut } from "@/auth";
-import dbConnect from "@/libs/db/dbConnect";
-import User, { type UserType as UserType } from "@/libs/db/models/User";
+import { signIn, signOut } from "@/auth";
 import { isProtectedPage } from "@/utils";
-import { FilterQuery, QueryOptions } from "mongoose";
+import { GetUserAPI, registerAPI } from "./api/auth";
+import { UserType } from "./types";
 
 const emailField = z
   .string({ required_error: "Email is required" })
@@ -23,13 +21,12 @@ const RegisterFormSchema = z.object({
   role: z.enum(["user", "admin"]).default("user"),
 });
 export async function userRegister(formState: unknown, formData: FormData) {
-  await dbConnect();
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await RegisterFormSchema.safeParseAsync(data);
   if (validatedFields.success) {
     try {
-      const user = await User.insertOne(validatedFields.data);
-      if (user) await signIn("credentials", formData);
+      const registerResult = await registerAPI(validatedFields.data);
+      if (registerResult.success) await signIn("credentials", formData);
     } catch (error) {
       if (error instanceof AuthError) {
         return { success: false, message: "Account created but error occured during login" };
@@ -38,7 +35,6 @@ export async function userRegister(formState: unknown, formData: FormData) {
         throw error;
       }
       console.error(error);
-      // TODO: Show error message from database to user
       return { success: false, message: "error occured (email might be used)", data };
     }
   }
@@ -47,7 +43,6 @@ export async function userRegister(formState: unknown, formData: FormData) {
 
 const LoginFormSchema = z.object({ email: emailField, password: passwordField });
 export async function userLogin(formState: unknown, formData: FormData) {
-  await dbConnect();
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await LoginFormSchema.safeParseAsync(data);
   try {
@@ -71,35 +66,24 @@ export async function userLogout(pathname: string) {
   await signOut(isProtectedPage(pathname) ? { redirectTo: `/login?callbackUrl=${pathname}` } : undefined);
 }
 
-export async function getMe() {
-  const session = await auth();
-  if (session)
-    return unstable_cache(
-      async () => {
-        await dbConnect();
-        try {
-          const user = await User.findById(session.user.id);
-          if (user) return { success: true, data: user.toObject() };
-        } catch (error) {
-          console.error(error);
-        }
-        return { success: false };
-      },
-      [session.user.id],
-      { revalidate: 780 }
-    )();
-  return { success: false };
-}
-
-export async function getUserList(filter: FilterQuery<UserType> = {}, options: QueryOptions<UserType> = {}) {
-  await dbConnect();
+export async function getUser(id: string): Promise<{ success: true; data: UserType } | { success: false }> {
   try {
-    const users = await User.find(filter, undefined, options);
-    if (users) {
-      return { success: true, count: users.length, data: users.map((e) => e.toObject()) };
-    }
-  } catch (err) {
-    console.error(err);
+    return await GetUserAPI(id);
+  } catch (error) {
+    console.error(error);
   }
   return { success: false };
 }
+
+// export async function getUserList(filter: FilterQuery<UserType> = {}, options: QueryOptions<UserType> = {}) {
+//   await dbConnect();
+//   try {
+//     const users = await User.find(filter, undefined, options);
+//     if (users) {
+//       return { success: true, count: users.length, data: users.map((e) => e.toObject()) };
+//     }
+//   } catch (err) {
+//     console.error(err);
+//   }
+//   return { success: false };
+// }

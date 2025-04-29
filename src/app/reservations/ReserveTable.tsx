@@ -1,3 +1,4 @@
+import { Session } from "next-auth";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -6,35 +7,32 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TablePaginationSP from "@/components/TablePaginationSP";
-import { auth } from "@/auth";
-import { getReservations } from "@/libs/reservations";
+import { getUserReservations } from "@/libs/reservations";
 import ReserveTableBody from "./ReserveTableBody";
+import SearchFieldSP from "@/components/SearchFieldSP";
+import FilterDialog from "@/components/reservations/FilterDialog";
 
-export default async function ReserveTableLoaded({
+export default async function ReserveTable({
   page,
   limit,
   search,
   min,
   max,
+  status,
+  session,
 }: {
   page: number;
   limit: number;
   search: string;
   min?: number;
   max?: number;
+  status?: string;
+  session: Session;
 }) {
   // For loading test
   // await new Promise((resolve) => setTimeout(resolve, 3000));
-  const response = await getReservations(
-    min && max ? { personCount: { $gte: min, $lte: max } } : {},
-    page,
-    limit,
-    search
-  );
-  if (!response.data) return <main>Cannot fetch data</main>;
-
-  const session = await auth();
-  if (!session) return <main>Login to view reservations</main>;
+  const response = await getUserReservations(session, { page, limit, min, max, status, search });
+  if (!response.success) return <main>Cannot fetch data</main>;
 
   return (
     <Paper sx={{ width: "100%", overflow: "hidden" }}>
@@ -42,11 +40,14 @@ export default async function ReserveTableLoaded({
         <Table stickyHeader aria-label="sticky table">
           <TableHead>
             <TableRow>
-              <TableCell align="left">Name</TableCell>
+              <TableCell align="left">
+                <SearchFieldSP search={search} props={{ variant: "standard" }} />
+              </TableCell>
               <TableCell align="left">Date</TableCell>
               <TableCell align="left">Status</TableCell>
-              <TableCell align="left">User</TableCell>
-              <TableCell align="center"></TableCell>
+              <TableCell align="center">
+                <FilterDialog />
+              </TableCell>
             </TableRow>
           </TableHead>
           <ReserveTableBody session={session} reservations={response.data} />
@@ -64,18 +65,11 @@ export function ReserveTableSkeleton() {
         <Table stickyHeader aria-label="sticky table">
           <TableHead>
             <TableRow>
-              <TableCell align="left">
-                <div className="h-4 w-12 animate-pulse rounded bg-gray-300"></div>
-              </TableCell>
-              <TableCell align="left">
-                <div className="h-4 w-12 animate-pulse rounded bg-gray-300"></div>
-              </TableCell>
-              <TableCell align="left">
-                <div className="h-4 w-12 animate-pulse rounded bg-gray-300"></div>
-              </TableCell>
-              <TableCell align="left">
-                <div className="h-4 w-12 animate-pulse rounded bg-gray-300"></div>
-              </TableCell>
+              {[...Array(3)].map((e, i) => (
+                <TableCell align="left" key={i}>
+                  <div className="h-4 w-12 animate-pulse rounded bg-gray-300"></div>
+                </TableCell>
+              ))}
               <TableCell align="center"></TableCell>
             </TableRow>
           </TableHead>
@@ -101,12 +95,6 @@ export function ReserveTableSkeleton() {
                 <div className="flex flex-col gap-4">
                   <div className="h-4 w-24 animate-pulse rounded bg-gray-300"></div>
                   <div className="h-4 w-24 animate-pulse rounded bg-gray-300"></div>
-                </div>
-              </TableCell>
-              <TableCell align="left">
-                <div className="flex items-center gap-2">
-                  <div className="h-6 w-6 animate-pulse rounded-full bg-gray-300"></div>
-                  <div className="h-4 w-8 animate-pulse rounded bg-gray-300"></div>
                 </div>
               </TableCell>
               <TableCell align="center">

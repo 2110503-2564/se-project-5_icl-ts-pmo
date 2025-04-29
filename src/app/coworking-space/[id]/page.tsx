@@ -1,20 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { auth } from "@/auth";
-import { deleteCoworkingSpace, getCoworkingSpace } from "@/libs/coworkingSpace";
+import { getCoworkingSpace } from "@/libs/coworkingSpace";
 import ReserveForm from "./ReserveForm";
 import DetailBody from "./DetailBody";
-import { checkBanAPI } from "@/libs/api/checkBan";
-import { Button } from "@mui/material";
+import CoworkingSpaceOptionButton from "@/components/coworkingSpace/OptionButton";
+import { auth } from "@/auth";
+import { checkBanAPI } from "@/libs/api/auth";
 
 export default async function CoworkingSpaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const [{ id }, session] = await Promise.all([params, auth()]);
   const response = await getCoworkingSpace(id);
-  if (!response.data) return <main>Cannot fetch data</main>;
+  if (!response.success) return <main>Cannot fetch data</main>;
   const { data: coworkingSpace } = response;
-
-  const session = await auth();
 
   return (
     <main className="p-4">
@@ -29,28 +27,20 @@ export default async function CoworkingSpaceDetailPage({ params }: { params: Pro
             sizes="50vw"
             priority
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="!text-left font-bold">{coworkingSpace.name}</h1>
-              {session && (session.user.role == "admin" || session.user.id == coworkingSpace.owner) && (
-                <>
-                  <Link href={`/coworking-space/${coworkingSpace._id}/edit`}>
-                    <Button color="primary" variant="text" size="small">
-                      Edit
-                    </Button>
-                  </Link>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await deleteCoworkingSpace(coworkingSpace._id);
-                    }}
-                  >
-                    <Button type="submit" color="primary" variant="text" size="small">
-                      Delete
-                    </Button>
-                  </form>
-                </>
-              )}
+          <div className="w-[50%]">
+            <div className="flex w-full items-center gap-2">
+              <div className="flex w-full items-center justify-between">
+                <h1 className="!text-left font-bold">{coworkingSpace.name}</h1>
+                {session && (session.user.role == "admin" || session.user._id == coworkingSpace.owner) && (
+                  <CoworkingSpaceOptionButton
+                    id={coworkingSpace._id}
+                    edit
+                    viewReserve
+                    viewDashboard
+                    deleteOption
+                  />
+                )}
+              </div>
             </div>
             <span className="mb-8 inline-block">{coworkingSpace.description}</span>
             <DetailBody coworkingSpace={coworkingSpace} />
@@ -58,7 +48,7 @@ export default async function CoworkingSpaceDetailPage({ params }: { params: Pro
         </div>
         <section className="p-4">
           {session ?
-            (await checkBanAPI(session.user.id)).isBanned ?
+            (await checkBanAPI(session)).isBanned ?
               <span>You cannot reserve because you are banned</span>
             : <>
                 <h2 className="text-center text-xl">Reserve {coworkingSpace.name}</h2>

@@ -2,15 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { getReservation } from "@/libs/reservations";
-import { concatAddress } from "@/utils";
+import { authLoggedIn, concatAddress } from "@/utils";
 import DetailBody from "./DetailBody";
 
 export default async function Reservation({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const response = await getReservation(id);
-  if (!response.data) return <main>{response.message || "Cannot fetch data"}</main>;
-
+  const session = await authLoggedIn(`/reservation/${id}`);
+  const response = await getReservation(id, session);
+  if (!response.success) return <main> Cannot fetch data</main>;
   const { data: reservation } = response;
+
   const startDate = new Date(reservation.startDate);
   const endDate = new Date(reservation.endDate);
   return (

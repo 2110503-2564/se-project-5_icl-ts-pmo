@@ -2,9 +2,9 @@
 
 import { ClockIcon, MapPinIcon, PhoneIcon } from "@heroicons/react/24/outline";
 import { concatAddress } from "@/utils";
-import { CWS } from "@/libs/db/models/CoworkingSpace";
+import { CoworkingSpaceType } from "@/libs/types";
 
-export default function InfoWithIcon({ coworkingSpace }: { coworkingSpace: CWS }) {
+export default function InfoWithIcon({ coworkingSpace }: { coworkingSpace: CoworkingSpaceType }) {
   const openTime = new Date(coworkingSpace.openTime);
   const closeTime = new Date(coworkingSpace.closeTime);
   return [

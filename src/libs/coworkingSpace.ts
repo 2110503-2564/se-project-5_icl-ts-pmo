@@ -1,51 +1,43 @@
 "use server";
 
-import { revalidateTag, unstable_cache } from "next/cache";
-import { FilterQuery } from "mongoose";
 import { z } from "zod";
-import { auth } from "@/auth";
-import dbConnect from "./db/dbConnect";
-import CoworkingSpace, { CWS } from "./db/models/CoworkingSpace";
-import Reservation from "./db/models/Reservation";
 import provinceData from "@/province";
+import {
+  createCoworkingSpaceAPI,
+  deleteCoWorkingSpaceAPI,
+  getCoWorkingSpaceAPI,
+  getCoworkingSpaceFrequencyAPI,
+  getCoWorkingSpacesAPI,
+  getCoworkingSpaceTotalReservationAPI,
+  updateCoWorkingSpaceAPI,
+} from "./api/coworkingSpace";
+import { CoworkingSpaceType } from "./types";
+import { auth } from "@/auth";
+import { Session } from "next-auth";
 
-export const getCoworkingSpaces = unstable_cache(
-  async (filter: FilterQuery<CWS> = {}, page: number = 0, limit: number = 15) => {
-    await dbConnect();
-    try {
-      const [total, coworkingSpaces] = await Promise.all([
-        CoworkingSpace.countDocuments(filter),
-        CoworkingSpace.find(filter, {}, { skip: page * limit, limit }),
-      ]);
-      return {
-        success: true,
-        total,
-        count: coworkingSpaces.length,
-        data: coworkingSpaces.map((e) => e.toObject()),
-      };
-    } catch (error) {
-      console.error(error);
-    }
-    return { success: false };
-  },
-  undefined,
-  { tags: ["coworkingSpaces"], revalidate: 60 }
-);
+export async function getCoworkingSpaces(
+  page?: number,
+  limit?: number,
+  search?: string
+): Promise<{ success: true; total: number; count: number; data: CoworkingSpaceType[] } | { success: false }> {
+  try {
+    return await getCoWorkingSpacesAPI(page, limit, search);
+  } catch (error) {
+    console.error(error);
+  }
+  return { success: false };
+}
 
-export const getCoworkingSpace = unstable_cache(
-  async (id: string) => {
-    await dbConnect();
-    try {
-      const coworkingSpace = await CoworkingSpace.findById(id);
-      if (coworkingSpace) return { success: true, data: coworkingSpace.toObject() };
-    } catch (err) {
-      console.error(err);
-    }
-    return { success: false };
-  },
-  undefined,
-  { tags: ["coworkingSpaces"], revalidate: 300 }
-);
+export async function getCoworkingSpace(
+  id: string
+): Promise<{ success: true; data: CoworkingSpaceType } | { success: false }> {
+  try {
+    return getCoWorkingSpaceAPI(id);
+  } catch (error) {
+    console.error(error);
+  }
+  return { success: false };
+}
 
 const editableFields = {
   name: z.string().max(50, { message: "Name can not be more than 50 characters" }),
@@ -81,77 +73,74 @@ const CreateCoworkingSpaceForm = z
       ),
     { message: "Invalid address data" }
   );
+
 export async function createCoworkingSpace(formState: unknown, formData: FormData) {
   const session = await auth();
-  if (!session) return { success: false };
+  if (!session) return { success: false, message: "unauthorized" };
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await CreateCoworkingSpaceForm.safeParseAsync(data);
-  if (validatedFields.success) {
-    await dbConnect();
-    try {
-      const coworkingSpace = await CoworkingSpace.create({ ...validatedFields.data, owner: session.user.id });
-      if (coworkingSpace) {
-        revalidateTag("coworkingSpaces");
-        return { success: true, data: coworkingSpace.toObject() };
-      }
-    } catch (error) {
-      // TODO: Show error message from database to user
-      console.error(error);
-    }
-    return { success: false, data };
+  if (!validatedFields.success) return { success: false, error: validatedFields.error.flatten(), data };
+  try {
+    const result = await createCoworkingSpaceAPI(validatedFields.data, session);
+    return result.success ? { success: true, data: result.data } : { success: false };
+  } catch (error) {
+    console.error(error);
   }
-  return { success: false, error: validatedFields.error.flatten(), data };
+  return { success: false, data };
 }
 
 const EditCoworkingSpaceForm = z.object(editableFields);
 export async function editCoworkingSpace(formState: unknown, formData: FormData) {
   const session = await auth();
+  if (!session) return { success: false, message: "unauthorized" };
   const id = formData.get("id")?.toString();
-  if (!session || !id) return { success: false };
+  if (!id) return { success: false, message: "Invalid input (111)" };
   const data = Object.fromEntries(formData.entries());
   const validatedFields = await EditCoworkingSpaceForm.safeParseAsync(data);
-  await dbConnect();
-  if (validatedFields.success) {
-    try {
-      const coworkingSpace = (await CoworkingSpace.findById(id))?.toObject();
-      if (!coworkingSpace) return { success: false, message: "Coworking Space not found", data };
-      if (coworkingSpace.owner != session.user.id)
-        return { success: false, message: "You are not this coworking space owner", data };
-      const updatedCoworkingSpace = await CoworkingSpace.findByIdAndUpdate(id, validatedFields.data, {
-        new: true,
-        runValidator: true,
-      });
-      if (updatedCoworkingSpace) {
-        revalidateTag("coworkingSpaces");
-        return { success: true, data: updatedCoworkingSpace.toObject() };
-      }
-    } catch (error) {
-      // TODO: Show error message from database to user
-      console.error(error);
-    }
-    return { success: false };
+  if (!validatedFields.success) return { success: false, error: validatedFields.error.flatten(), data };
+  try {
+    const response = await updateCoWorkingSpaceAPI(id, validatedFields.data, session);
+    if (response.success) return { success: true };
+  } catch (error) {
+    console.error(error);
   }
-  return { success: false, error: validatedFields.error.flatten(), data };
+  return { success: false };
 }
 
 export async function deleteCoworkingSpace(id: string) {
   const session = await auth();
-  if (!session) return { success: false };
-  await dbConnect();
+  if (!session) return { success: false, message: "unauthorized" };
   try {
-    const coworkingSpace = (await CoworkingSpace.findById(id))?.toObject();
-    if (!coworkingSpace) return { success: false, message: "Coworking Space not found" };
-    if (coworkingSpace.owner != session.user.id)
-      return { success: false, message: "You are not this coworking space owner" };
-    const [result] = await Promise.all([
-      CoworkingSpace.deleteOne({ _id: id }),
-      Reservation.deleteMany({ coworkingSpace: id }),
-    ]);
-    if (result.acknowledged) {
-      revalidateTag("coworkingSpaces");
-      revalidateTag("reservations");
-      return { success: true };
+    return await deleteCoWorkingSpaceAPI(id, session);
+  } catch (error) {
+    console.error(error);
+  }
+  return { success: false };
+}
+
+export async function getCoworkingSpaceTotalReservation(
+  id: string,
+  session: Session
+): Promise<
+  | {
+      success: true;
+      data: { pending: number; canceled: number; approved: number; rejected: number } & { total: number };
     }
+  | { success: false }
+> {
+  try {
+    const result = await getCoworkingSpaceTotalReservationAPI(id, session);
+    if (result.success) return { success: true, data: result.data };
+  } catch (error) {
+    console.error(error);
+  }
+  return { success: false };
+}
+
+export async function getCoworkingSpaceFrequency(id: string, session: Session) {
+  try {
+    const result = await getCoworkingSpaceFrequencyAPI(id, session);
+    if (result.success) return { success: true, data: result.data };
   } catch (error) {
     console.error(error);
   }

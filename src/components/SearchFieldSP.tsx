@@ -2,10 +2,16 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedCallback } from "use-debounce";
-import { InputAdornment, TextField } from "@mui/material";
+import { InputAdornment, TextField, TextFieldProps, TextFieldVariants } from "@mui/material";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
-export default function SearchFieldSP({ search }: { search: string }) {
+export default function SearchFieldSP<Variant extends TextFieldVariants>({
+  search,
+  props,
+}: {
+  search: string;
+  props?: { variant?: Variant } & Omit<TextFieldProps, "variant">;
+}) {
   const [pathname, searchParams] = [usePathname(), useSearchParams()];
   const { replace } = useRouter();
 
@@ -26,8 +32,6 @@ export default function SearchFieldSP({ search }: { search: string }) {
       className="w-md"
       variant="outlined"
       placeholder="Search..."
-      defaultValue={search}
-      onChange={(e) => handleSearch(e.target.value)}
       slotProps={{
         input: {
           startAdornment: (
@@ -37,6 +41,9 @@ export default function SearchFieldSP({ search }: { search: string }) {
           ),
         },
       }}
+      {...props}
+      defaultValue={search}
+      onChange={(e) => handleSearch(e.target.value)}
     />
   );
 }
