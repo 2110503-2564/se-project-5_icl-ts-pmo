@@ -45,24 +45,30 @@ export default async function ReserveTable({
     return <div className="mx-auto my-[20px] text-center text-xl">You don't have any reservations.</div>;
 
   return (
-    <Paper sx={{ width: "100%", overflow: "hidden" }}>
-      <TableContainer sx={{ maxHeight: 440 }}>
-        <Table stickyHeader aria-label="sticky table">
-          <TableHead>
-            <TableRow>
-              <TableCell align="left">User</TableCell>
-              <TableCell align="left">Date</TableCell>
-              <TableCell align="left">Status</TableCell>
-              <TableCell align="center">
-                <FilterDialog />
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <ReserveTableBody session={session} reservations={response.data} coworkingSpace={coworkingSpace} />
-        </Table>
-        <TablePaginationSP page={page} limit={limit} total={response.total} />
-      </TableContainer>
-    </Paper>
+    <div className="mx-auto max-w-5xl rounded-3xl border p-8">
+      <Paper sx={{ width: "100%", overflow: "hidden" }}>
+        <TableContainer sx={{ maxHeight: 440 }}>
+          <Table stickyHeader aria-label="sticky table">
+            <TableHead>
+              <TableRow>
+                <TableCell align="left">User</TableCell>
+                <TableCell align="left">Date</TableCell>
+                <TableCell align="left">Status</TableCell>
+                <TableCell align="center">
+                  <FilterDialog />
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <ReserveTableBody
+              session={session}
+              reservations={response.data}
+              coworkingSpace={coworkingSpace}
+            />
+          </Table>
+          <TablePaginationSP page={page} limit={limit} total={response.total} />
+        </TableContainer>
+      </Paper>
+    </div>
   );
 }
 
